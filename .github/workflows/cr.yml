@@ -32,9 +32,59 @@ jobs:
       # 이후 이 부분은 envsubst가 추가될 예정
       ##############################################################
 
+      ###############################################
+
+      # envsubst 설치
+      - name: Install envsubst
+        run: sudo apt-get install -y gettext
+
+      # MariaDB 데이터베이스 연결을 위한 application.yml 파일을 환경 변수로 생성
+      - name: Create application.yml.template
+        run: |
+          mkdir -p src/main/resources
+          cat > src/main/resources/application.yml.template <<EOL
+          server:
+            port: 5000
+            servlet:
+              encoding:
+                charset: UTF-8
+                force: true
+          
+          spring:
+            datasource:
+              driver-class-name: org.mariadb.jdbc.Driver
+              url: jdbc:mariadb://\${RDS_HOSTNAME}:\${RDS_PORT}/\${RDS_DB_NAME}
+              username: \${RDS_USERNAME}
+              password: \${RDS_PASSWORD}
+          
+            jpa:
+              generate-ddl: false
+              show-sql: true
+              database: mysql
+              properties:
+                hibernate:
+                  '[format_sql]': true
+          
+          EOL
+
+      # envsubst는 환경 변수를 치환해주는 유틸리티로, 템플릿 파일의 ${VARIABLE} 형태의 변수를 실제 환경 변수 값으로 대체
+      - name: Set Yaml
+        run: |
+          envsubst < src/main/resources/application.yml.template > src/main/resources/application.yml
+          echo "Generated application.yml:"
+          cat src/main/resources/application.yml
+        env:
+          RDS_HOSTNAME: ${{ secrets.RDS_HOSTNAME }}
+          RDS_PORT: ${{ secrets.RDS_PORT }}
+          RDS_DB_NAME: ${{ secrets.RDS_DB_NAME }}
+          RDS_USERNAME: ${{ secrets.RDS_USERNAME }}
+          RDS_PASSWORD: ${{ secrets.RDS_PASSWORD }}
+
+      ###############################################
+
       - name: Build with Gradle
-        run: ./gradlew clean build -x test
-        #        run: ./gradlew clean build
+        #        run: ./gradlew clean build -x test
+        run: ./gradlew clean build
         shell: bash
 
       - name: Get current time
